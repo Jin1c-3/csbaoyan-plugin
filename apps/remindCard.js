@@ -36,7 +36,7 @@ export class RemindCard extends plugin {
     if (Math.random() >= 0.35) {
       return false;
     }
-    if (common.checkPermission(e, "admin")) return false;
+    if (common.getPermission(e, "admin")===true) return false;
     let member_name = e.sender.card;
     if (!cardRegex.test(member_name)) {
       // 引用并at回复
