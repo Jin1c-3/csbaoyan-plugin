@@ -1,0 +1,32 @@
+{
+  "name": "csbaoyan-plugin",
+  "version": "1.0.0",
+  "description": "专门为计算机保研绿群开发的辅助插件",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jin1c-3/csbaoyan-plugin.git"
+  },
+  "keywords": [
+    "yunzai"
+  ],
+  "author": "Jin1c-3",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/Jin1c-3/csbaoyan-plugin/issues"
+  },
+  "homepage": "https://github.com/Jin1c-3/csbaoyan-plugin#readme",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "puppeteer": "^13.0.0",
+    "lodash": "^4.17.21",
+    "yaml": "^1.10.2",
+    "chokidar": "^3.5.2"
+  }
+}
