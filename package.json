@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "专门为计算机保研绿群开发的辅助插件",
   "main": "index.js",
+  "type": "module",
   "directories": {
     "lib": "lib"
   },
