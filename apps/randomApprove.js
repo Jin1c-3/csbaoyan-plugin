@@ -1,4 +1,4 @@
-import Config from "../model/config.js";
+import Config from '../model/Config.js'
 import lodash from "lodash";
 import common from "../lib/common/common.js";
 
@@ -26,7 +26,7 @@ export class RandomApprove extends plugin {
   }
 
   async commentRegexConfig(e) {
-    if (!common.checkPermission(e, "admin")) return false;
+    if (!common.checkPermission(e, "admin")) return true;
     if (/#(查看|查询)/.test(e.raw_message)) {
       let commentRegex = Config.getConfig("randomApprove", "commentRegex");
       return e.reply(`当前正则表达式为：${commentRegex}`);
@@ -55,7 +55,7 @@ export class RandomApprove extends plugin {
   }
 
   async autoApprove(e) {
-    if (!common.checkPermission(e, "admin")) return false;
+    if (!common.checkPermission(e, "admin")) return true;
     let groups = Config.getConfig("default", "scope");
     if (!groups.includes(e.group_id)) {
       return false;

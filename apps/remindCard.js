@@ -1,4 +1,4 @@
-import Config from "../model/config.js";
+import Config from '../model/Config.js'
 import common from "../lib/common/common.js";
 
 // TextMsg可自行更改，其他照旧即可。
