@@ -36,7 +36,12 @@ export class RemindCard extends plugin {
     if (Math.random() >= 0.35) {
       return false;
     }
-    if (common.getPermission(e, "admin")===true) return false;
+    if (common.getPermission(e, "admin") === true) return false;
+    let member_title = (await e.group.pickMember(e.user_id).getInfo()).title;
+    if (member_title) {
+      logger.mark(`遇到title爷了：${member_title}`);
+      return false;
+    }
     let member_name = e.sender.card;
     if (!cardRegex.test(member_name)) {
       // 引用并at回复

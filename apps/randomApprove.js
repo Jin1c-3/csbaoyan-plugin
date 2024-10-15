@@ -60,12 +60,27 @@ export class RandomApprove extends plugin {
     if (!groups.includes(e.group_id)) {
       return false;
     }
-    let SystemMsg = (await (e.bot ?? Bot).getSystemMsg()).filter(
-      (item) =>
-        item.request_type == "group" &&
-        item.sub_type == "add" &&
-        item.group_id == e.group_id
-    );
+    let seenUserIds = new Set();
+    let SystemMsg = await (e.bot ?? Bot).getSystemMsg();
+    let filteredSystemMsg = [];
+
+    for (let i = 0; i < SystemMsg.length; i++) {
+      let item = SystemMsg[i];
+      if (
+        item.request_type === "group" &&
+        item.sub_type === "add" &&
+        groups.includes(item.group_id)
+      ) {
+        if (seenUserIds.has(item.user_id)) {
+          item.approve(false);
+          await Bot.sleep(1000);
+        } else {
+          seenUserIds.add(item.user_id);
+          filteredSystemMsg.push(item);
+        }
+      }
+    }
+    SystemMsg = filteredSystemMsg
     if (lodash.isEmpty(SystemMsg))
       return e.reply("暂无加群申请(。-ω-)zzz", true);
     // 随机打乱SystemMsg
@@ -95,7 +110,9 @@ export class RandomApprove extends plugin {
     let fail = [];
     let risk = [];
     for (let i of SystemMsg) {
-      let yes = commentRegex.test(i.comment);
+      let i_comment = i.comment.replace(/答案：/, "");
+      let yes = commentRegex.test(i_comment);
+      logger.mark(`i_comment:${i_comment}；commentRegex：${commentRegex}；审核结果：${yes}`)
       if (yes && (await i.approve(yes))) {
         success.push(`${success.length + 1}、${i.user_id}`);
       } else {
