@@ -1,12 +1,14 @@
-<center>
+<div align="center">
 
-# csbaoyan-plugin
+# CSBaoyan-Plugin
 
 <hr/>
 
 基于 [trss-yunzai](trss.me) 机器人的插件，写法上借鉴了 [yenai-plugin](yenai.ren) ，功能上专为 [绿群](https://github.com/cs-baoyan) 客制化了需求，感谢他们做出的贡献。
 
-</center>
+[![访问量](https://profile-counter.glitch.me/Jin1c\-3-csbaoyan\-plugin/count.svg)](https://github.com/Jin1c-3/csbaoyan-plugin)
+
+</div>
 
 ## 工作方式
 
