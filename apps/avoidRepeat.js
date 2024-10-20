@@ -4,9 +4,10 @@ import imghash from 'imghash';
 import leven from 'leven';
 import axios from 'axios';
 import sharp from 'sharp'
-import fs from 'fs'
+import fs from 'fs/promises';
+import tmp from 'tmp-promise'
 
-let group_track_message = {}
+let group_track_message = new Map();
 
 export class AvoidRepeat extends plugin {
     constructor() {
@@ -40,67 +41,71 @@ export class AvoidRepeat extends plugin {
         if (!groups.includes(e.group_id)) {
             return false;
         }
+        if (common.getPermission(e, "admin") === true) return false;
         let member_title = (await e.group.pickMember(e.user_id).getInfo()).title;
         if (member_title) {
             logger.mark(`遇到title爷了：${member_title}`);
             return false;
         }
-        if (common.getPermission(e, "admin") === true) return false;
-        if (group_track_message[e.group_id] === undefined) {
-            group_track_message[e.group_id] = []
+        if (!group_track_message.has(e.group_id)) {
+            group_track_message.set(e.group_id, []);
         }
         let traceNum = Config.getConfig("avoidRepeat", "traceNum");
-        if (group_track_message[e.group_id].length == 0) {
-            group_track_message[e.group_id].push(e);
+        let messages = group_track_message.get(e.group_id);
+        if (messages.length == 0) {
+            messages.push(e);
             return false;
         }
         if (e.img) {
-            logger.mark(`e.img: ${e.img}`);
-            if (!group_track_message[e.group_id][group_track_message[e.group_id].length - 1].img) {
-                group_track_message[e.group_id] = [];
-                group_track_message[e.group_id].push(e);
+            if (!messages[messages.length - 1].img) {
+                group_track_message.set(e.group_id, [e]);
             } else {
-                const buffer1 = await this.getImageBufferFromUrl(e.img);
-                const buffer2 = await this.getImageBufferFromUrl(group_track_message[e.group_id][group_track_message[e.group_id].length - 1].img);
-                const image1 = await sharp(buffer1).jpeg().toBuffer();
-                const image2 = await sharp(buffer2).jpeg().toBuffer();
-                // 创建临时文件路径
-                const tempDir = './data/csbaoyan-plugin';
-                if (!fs.existsSync(tempDir)) {
-                    fs.mkdirSync(tempDir);
-                }
-                // 将 image1 数据写入临时文件
-                fs.writeFileSync(`${tempDir}/image1.jpeg`, image1);
-                fs.writeFileSync(`${tempDir}/image2.jpeg`, image2);
-                const hash1 = await imghash.hash(`${tempDir}/image1.jpeg`);
-                const hash2 = await imghash.hash(`${tempDir}/image2.jpeg`);
-                const distance = leven(hash1, hash2);
-                fs.unlinkSync(`${tempDir}/image1.jpeg`);
-                fs.unlinkSync(`${tempDir}/image2.jpeg`);
-                logger.mark(`Distance between images is: ${distance}`);
-                if (distance <= Config.getConfig("avoidRepeat", "sensitive")) {
-                    group_track_message[e.group_id].push(e);
-                } else {
-                    group_track_message[e.group_id] = [];
-                    group_track_message[e.group_id].push(e);
+                const [buffer1, buffer2] = await Promise.all([
+                    this.getImageBufferFromUrl(e.img),
+                    this.getImageBufferFromUrl(messages[messages.length - 1].img)
+                ]);
+                const [image1, image2] = await Promise.all([
+                    sharp(buffer1).jpeg().toBuffer(),
+                    sharp(buffer2).jpeg().toBuffer()
+                ]);
+                const { path: tempFilePath1, cleanup: cleanup1 } = await tmp.file({ postfix: '.jpeg' });
+                const { path: tempFilePath2, cleanup: cleanup2 } = await tmp.file({ postfix: '.jpeg' });
+                try {
+                    await Promise.all([
+                        fs.writeFile(tempFilePath1, image1),
+                        fs.writeFile(tempFilePath2, image2)
+                    ]);
+                    const [hash1, hash2] = await Promise.all([
+                        imghash.hash(tempFilePath1),
+                        imghash.hash(tempFilePath2)
+                    ]);
+                    const distance = leven(hash1, hash2);
+                    logger.mark(`Distance between images is: ${distance}`);
+            
+                    if (distance <= Config.getConfig("avoidRepeat", "sensitive")) {
+                        messages.push(e);
+                    } else {
+                        group_track_message.set(e.group_id, [e]);
+                    }
+                } finally {
+                    await Promise.all([cleanup1(), cleanup2()]);
                 }
             }
         } else {
-            if (group_track_message[e.group_id][group_track_message[e.group_id].length - 1].msg == e.msg) {
-                group_track_message[e.group_id].push(e);
+            if (messages[messages.length - 1].msg == e.msg) {
+                messages.push(e);
             }
             else {
-                group_track_message[e.group_id] = [];
-                group_track_message[e.group_id].push(e);
+                group_track_message.set(e.group_id, [e]);
             }
         }
-        if (group_track_message[e.group_id].length >= traceNum) {
-            const res = await e.reply(`不要复读捏ヽ(*。>Д<)o゜`)
-            for (let m of group_track_message[e.group_id]) {
+        if (messages.length >= traceNum) {
+            const res = await e.reply(`复读达咩哟ヽ(*。>Д<)o゜`)
+            for (let m of messages) {
                 await e.group.recallMsg(m.message_id);
             }
             await e.group.recallMsg(res.message_id);
-            group_track_message[e.group_id] = [];
+            group_track_message.set(e.group_id, []);
             return false;
         }
     }

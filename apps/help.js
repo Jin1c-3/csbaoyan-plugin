@@ -53,7 +53,11 @@ export class CSBaoyanHelp extends plugin {
     ⑵按照要求确认并等待清理，平均1-6秒清理1个群友
     ⑶使用指令：
       - #自动审批
-      - bot将自动放行入群申请`;
+      - bot将自动放行入群申请
+      
+6. 复读检测：
+    描述：使用感知哈希检测图片，重复超过一定次数会被撤回
+    使用方法：自动进行`;
 
     return e.reply(helpMessage);
   }
