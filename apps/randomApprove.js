@@ -110,7 +110,7 @@ export class RandomApprove extends plugin {
     let fail = [];
     let risk = [];
     for (let i of SystemMsg) {
-      let i_comment = i.comment.replace(/答案：/, "");
+      let i_comment = i.comment.match(/答案：(.*)/)[1]
       let yes = commentRegex.test(i_comment);
       logger.mark(`i_comment:${i_comment}；commentRegex：${commentRegex}；审核结果：${yes}`)
       if (yes && (await i.approve(yes))) {

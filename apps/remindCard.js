@@ -16,6 +16,11 @@ export class RemindCard extends plugin {
           log: false,
         },
         {
+          reg: "^#(设置|查看|查询)群名片概率", // 正则表达式,有关正则表达式请自行百度
+          fnc: "chanceConfig", // 执行方法
+          log: false,
+        },
+        {
           reg: "", // 正则表达式,有关正则表达式请自行百度
           fnc: "reminder", // 执行方法
           log: false,
@@ -29,11 +34,11 @@ export class RemindCard extends plugin {
       `${Config.getConfig("remindCard", "cardRegex")}`
     );
     let groups = Config.getConfig("default", "scope");
+    let chance = Config.getConfig("remindCard", "chance");
     if (!groups.includes(e.group_id)) {
       return false;
     }
-    // 生成一个0到1之间的随机数，只有小于0.2时才进行提醒
-    if (Math.random() >= 0.35) {
+    if (Math.random() >= chance) {
       return false;
     }
     if (common.getPermission(e, "admin") === true) return false;
@@ -83,5 +88,23 @@ export class RemindCard extends plugin {
 
     Config.setConfig("remindCard", "cardRegex", cardRegexString);
     return e.reply(`设置成功，当前正则表达式为：${cardRegexString}`);
+  }
+
+  async chanceConfig(e) {
+    if (!common.checkPermission(e, "admin")) return false;
+    if (/#(查看|查询)/.test(e.raw_message)) {
+      let chance = Config.getConfig("remindCard", "chance");
+      return e.reply(`当前群名片提示概率为：${chance}`);
+    }
+    let chance = e.raw_message
+      .replace(/#?设置群名片概率/, "")
+      .replace(/&#91;/g, "[")
+      .replace(/&#93;/g, "]")
+      .trim();
+    if (0 > chance || chance > 1) {
+      return e.reply(`设置失败，概率不合理：${chance}`);
+    }
+    Config.setConfig("remindCard", "chance", Number(chance));
+    return e.reply(`设置成功，当前群名片提示概率为：${chance}`);
   }
 }
