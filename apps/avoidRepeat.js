@@ -53,51 +53,14 @@ export class AvoidRepeat extends plugin {
         let traceNum = Config.getConfig("avoidRepeat", "traceNum");
         let messages = group_track_message.get(e.group_id);
         if (messages.length == 0) {
-            messages.push(e);
+            messages.push({ ...e.message[0], message_id: e.message_id });
             return false;
         }
-        if (e.img) {
-            if (!messages[messages.length - 1].img) {
-                group_track_message.set(e.group_id, [e]);
-            } else {
-                const [buffer1, buffer2] = await Promise.all([
-                    this.getImageBufferFromUrl(e.img),
-                    this.getImageBufferFromUrl(messages[messages.length - 1].img)
-                ]);
-                const [image1, image2] = await Promise.all([
-                    sharp(buffer1).jpeg().toBuffer(),
-                    sharp(buffer2).jpeg().toBuffer()
-                ]);
-                const { path: tempFilePath1, cleanup: cleanup1 } = await tmp.file({ postfix: '.jpeg' });
-                const { path: tempFilePath2, cleanup: cleanup2 } = await tmp.file({ postfix: '.jpeg' });
-                try {
-                    await Promise.all([
-                        fs.writeFile(tempFilePath1, image1),
-                        fs.writeFile(tempFilePath2, image2)
-                    ]);
-                    const [hash1, hash2] = await Promise.all([
-                        imghash.hash(tempFilePath1),
-                        imghash.hash(tempFilePath2)
-                    ]);
-                    const distance = leven(hash1, hash2);
-                    logger.mark(`Distance between images is: ${distance}`);
-            
-                    if (distance <= Config.getConfig("avoidRepeat", "sensitive")) {
-                        messages.push(e);
-                    } else {
-                        group_track_message.set(e.group_id, [e]);
-                    }
-                } finally {
-                    await Promise.all([cleanup1(), cleanup2()]);
-                }
-            }
+        const isSimilar = await this.isSimilarMessage(e.message[0], messages[messages.length - 1]);
+        if (isSimilar) {
+            messages.push({ ...e.message[0], message_id: e.message_id });
         } else {
-            if (messages[messages.length - 1].msg == e.msg) {
-                messages.push(e);
-            }
-            else {
-                group_track_message.set(e.group_id, [e]);
-            }
+            group_track_message.set(e.group_id, [{ ...e.message[0], message_id: e.message_id }]);
         }
         if (messages.length >= traceNum) {
             const res = await e.reply(`复读达咩哟ヽ(*。>Д<)o゜`)
@@ -107,6 +70,47 @@ export class AvoidRepeat extends plugin {
             await e.group.recallMsg(res.message_id);
             group_track_message.set(e.group_id, []);
             return false;
+        }
+    }
+
+    async isSimilarMessage(now_msg, last_msg) {
+        if (now_msg.type == "image") {
+            if (last_msg.type != "image") {
+                return false;
+            }
+            if (now_msg.file_unique === last_msg.file_unique) {
+                return true;
+            }
+            const [buffer1, buffer2] = await Promise.all([
+                this.getImageBufferFromUrl(now_msg.url),
+                this.getImageBufferFromUrl(last_msg.url)
+            ]);
+            const [image1, image2] = await Promise.all([
+                sharp(buffer1).jpeg().toBuffer(),
+                sharp(buffer2).jpeg().toBuffer()
+            ]);
+            const { path: tempFilePath1, cleanup: cleanup1 } = await tmp.file({ postfix: '.jpeg' });
+            const { path: tempFilePath2, cleanup: cleanup2 } = await tmp.file({ postfix: '.jpeg' });
+            try {
+                await Promise.all([
+                    fs.writeFile(tempFilePath1, image1),
+                    fs.writeFile(tempFilePath2, image2)
+                ]);
+                const [hash1, hash2] = await Promise.all([
+                    imghash.hash(tempFilePath1),
+                    imghash.hash(tempFilePath2)
+                ]);
+                const distance = leven(hash1, hash2);
+                logger.mark(`Distance between images is: ${distance}`);
+                return distance <= Config.getConfig("avoidRepeat", "sensitive");
+            } finally {
+                await Promise.all([cleanup1(), cleanup2()]);
+            }
+        } else {
+            if (last_msg.type == 'image') {
+                return false;
+            }
+            return last_msg.text === now_msg.text;
         }
     }
 
