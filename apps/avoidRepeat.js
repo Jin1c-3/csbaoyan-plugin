@@ -15,17 +15,15 @@ export class AvoidRepeat extends plugin {
             name: "[csbaoyan]阻止复读", // 插件名称
             dsc: "阻止群成员发送重复消息", // 插件描述
             event: "message.group", // 监听群消息事件
-            priority: 500, // 插件优先度，数字越小优先度越高
+            priority: -8, // 插件优先度，数字越小优先度越高
             rule: [
                 {
                     reg: "^#(设置|查看|查询)复读阻止次数", // 正则表达式,有关正则表达式请自行百度
                     fnc: "traceNumConfig", // 执行方法
-                    log: false,
                 },
                 {
                     reg: "^#(设置|查看|查询)复读图片敏感度", // 正则表达式,有关正则表达式请自行百度
                     fnc: "sensitiveConfig", // 执行方法
-                    log: false,
                 },
                 {
                     reg: "", // 匹配所有消息
@@ -53,23 +51,29 @@ export class AvoidRepeat extends plugin {
         let traceNum = Config.getConfig("avoidRepeat", "traceNum");
         let messages = group_track_message.get(e.group_id);
         if (messages.length == 0) {
-            messages.push({ ...e.message[0], message_id: e.message_id });
+            messages.push({ ...e.message[0], message_id: e.message_id, user_id: e.user_id });
             return false;
         }
         const isSimilar = await this.isSimilarMessage(e.message[0], messages[messages.length - 1]);
         if (isSimilar) {
-            messages.push({ ...e.message[0], message_id: e.message_id });
+            messages.push({ ...e.message[0], message_id: e.message_id, user_id: e.user_id });
         } else {
-            group_track_message.set(e.group_id, [{ ...e.message[0], message_id: e.message_id }]);
+            group_track_message.set(e.group_id, [{ ...e.message[0], message_id: e.message_id, user_id: e.user_id }]);
         }
         if (messages.length >= traceNum) {
             const res = await e.reply(`复读达咩哟ヽ(*。>Д<)o゜`)
-            for (let m of messages) {
-                await e.group.recallMsg(m.message_id);
+            let user_id_pool = new Set();
+            for (let i = 0; i < messages.length; i++) {
+                await e.group.recallMsg(messages[i].message_id);
+                if (i != 0 || user_id_pool.has(messages[i].user_id)) {
+                    continue;
+                }
+                await e.group.muteMember(messages[i].user_id, 60)
+                user_id_pool.add(messages[i].user_id)
             }
             await e.group.recallMsg(res.message_id);
             group_track_message.set(e.group_id, []);
-            return false;
+            return true;
         }
     }
 
@@ -78,13 +82,13 @@ export class AvoidRepeat extends plugin {
             if (last_msg.type != "image") {
                 return false;
             }
-            if (now_msg.file_unique === last_msg.file_unique) {
+            if (now_msg.file_unique == last_msg.file_unique) {
                 return true;
             }
             const [buffer1, buffer2] = await Promise.all([
                 this.getImageBufferFromUrl(now_msg.url),
                 this.getImageBufferFromUrl(last_msg.url)
-            ]);
+            ]).catch(_ => { return false; });
             const [image1, image2] = await Promise.all([
                 sharp(buffer1).jpeg().toBuffer(),
                 sharp(buffer2).jpeg().toBuffer()
