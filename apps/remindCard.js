@@ -1,5 +1,6 @@
 import Config from '../model/Config.js'
 import common from "../lib/common/common.js";
+import { cache } from '../model/index.js'
 
 // TextMsg可自行更改，其他照旧即可。
 export class RemindCard extends plugin {
@@ -42,10 +43,10 @@ export class RemindCard extends plugin {
       return false;
     }
     if (common.getPermission(e, "admin") === true) return false;
-    let member_title = (await e.group.pickMember(e.user_id).getInfo()).title;
-    if (member_title) {
-      logger.mark(`遇到title爷了：${member_title}`);
-      return false;
+    const memberInfo = await cache.getMemberInfo(e.user_id, e.group);
+    if (memberInfo.title) {
+        logger.mark(`遇到title爷了：${memberInfo.title}`);
+        return false;
     }
     let member_name = e.sender.card;
     if (!cardRegex.test(member_name)) {

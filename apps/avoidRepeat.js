@@ -6,6 +6,10 @@ import axios from 'axios';
 import sharp from 'sharp'
 import fs from 'fs/promises';
 import tmp from 'tmp-promise'
+import { cache } from '../model/index.js'
+
+// 用于缓存图像哈希
+const imageHashCache = new Map();
 
 let group_track_message = new Map();
 
@@ -36,13 +40,10 @@ export class AvoidRepeat extends plugin {
 
     async checkRepeat(e) {
         let groups = Config.getConfig("default", "scope");
-        if (!groups.includes(e.group_id)) {
-            return false;
-        }
-        if (common.getPermission(e, "admin") === true) return false;
-        let member_title = (await e.group.pickMember(e.user_id).getInfo()).title;
-        if (member_title) {
-            logger.mark(`遇到title爷了：${member_title}`);
+        if (!groups.includes(e.group_id) || common.getPermission(e, "admin") === true) return false;
+        const memberInfo = await cache.getMemberInfo(e.user_id, e.group);
+        if (memberInfo.title) {
+            logger.mark(`遇到title爷了：${memberInfo.title}`);
             return false;
         }
         if (!group_track_message.has(e.group_id)) {
@@ -62,10 +63,10 @@ export class AvoidRepeat extends plugin {
         }
         if (messages.length >= traceNum) {
             const res = await e.reply(`复读达咩哟ヽ(*。>Д<)o゜`)
-            let user_id_pool = new Set();
+            const user_id_pool = new Set();
             for (let i = 0; i < messages.length; i++) {
                 await e.group.recallMsg(messages[i].message_id);
-                if (i != 0 || user_id_pool.has(messages[i].user_id)) {
+                if (i === 0 || user_id_pool.has(messages[i].user_id)) {
                     continue;
                 }
                 await e.group.muteMember(messages[i].user_id, 60)
@@ -75,47 +76,49 @@ export class AvoidRepeat extends plugin {
             group_track_message.set(e.group_id, []);
             return true;
         }
+        return false;
     }
 
     async isSimilarMessage(now_msg, last_msg) {
+        if (now_msg.type !== last_msg.type) {
+            return false;
+        }
         if (now_msg.type == "image") {
-            if (last_msg.type != "image") {
-                return false;
-            }
             if (now_msg.file_unique == last_msg.file_unique) {
                 return true;
             }
-            const [buffer1, buffer2] = await Promise.all([
-                this.getImageBufferFromUrl(now_msg.url),
-                this.getImageBufferFromUrl(last_msg.url)
-            ]).catch(_ => { return false; });
-            const [image1, image2] = await Promise.all([
-                sharp(buffer1).jpeg().toBuffer(),
-                sharp(buffer2).jpeg().toBuffer()
+            const [hash1, hash2] = await Promise.all([
+                this.getOrComputeImageHash(now_msg.file_unique, now_msg.url),
+                this.getOrComputeImageHash(last_msg.file_unique, last_msg.url)
             ]);
-            const { path: tempFilePath1, cleanup: cleanup1 } = await tmp.file({ postfix: '.jpeg' });
-            const { path: tempFilePath2, cleanup: cleanup2 } = await tmp.file({ postfix: '.jpeg' });
-            try {
-                await Promise.all([
-                    fs.writeFile(tempFilePath1, image1),
-                    fs.writeFile(tempFilePath2, image2)
-                ]);
-                const [hash1, hash2] = await Promise.all([
-                    imghash.hash(tempFilePath1),
-                    imghash.hash(tempFilePath2)
-                ]);
-                const distance = leven(hash1, hash2);
-                logger.mark(`Distance between images is: ${distance}`);
-                return distance <= Config.getConfig("avoidRepeat", "sensitive");
-            } finally {
-                await Promise.all([cleanup1(), cleanup2()]);
-            }
-        } else {
-            if (last_msg.type == 'image') {
+
+            if (!hash1 || !hash2) {
                 return false;
             }
+            const distance = leven(hash1, hash2);
+            logger.mark(`Distance between images is: ${distance}`);
+            return distance <= Config.getConfig("avoidRepeat", "sensitive");
+        } else {
             return last_msg.text === now_msg.text;
         }
+    }
+
+    async getOrComputeImageHash(fileUnique, imageUrl) {
+        let hash = imageHashCache.get(fileUnique);
+        if (!hash) {
+            try {
+                const buffer = await this.getImageBufferFromUrl(imageUrl);
+                const image = await sharp(buffer).jpeg().toBuffer();
+                const { path: tempFilePath, cleanup } = await tmp.file({ postfix: '.jpeg' });
+                await fs.writeFile(tempFilePath, image);
+                hash = await imghash.hash(tempFilePath);
+                imageHashCache.set(fileUnique, hash);
+                await cleanup();
+            } catch (error) {
+                return null;
+            }
+        }
+        return hash;
     }
 
     async traceNumConfig(e) {
