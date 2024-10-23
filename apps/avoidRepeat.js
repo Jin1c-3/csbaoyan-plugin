@@ -65,12 +65,14 @@ export class AvoidRepeat extends plugin {
             const res = await e.reply(`复读达咩哟ヽ(*。>Д<)o゜`)
             const user_id_pool = new Set();
             for (let i = 0; i < messages.length; i++) {
-                await e.group.recallMsg(messages[i].message_id);
-                if (i === 0 || user_id_pool.has(messages[i].user_id)) {
+                if (!user_id_pool.has(messages[i].user_id)) {
+                    await e.group.muteMember(messages[i].user_id, 60)
+                    user_id_pool.add(messages[i].user_id)
+                }
+                if (i === 0) {
                     continue;
                 }
-                await e.group.muteMember(messages[i].user_id, 60)
-                user_id_pool.add(messages[i].user_id)
+                await e.group.recallMsg(messages[i].message_id);
             }
             await e.group.recallMsg(res.message_id);
             group_track_message.set(e.group_id, []);
