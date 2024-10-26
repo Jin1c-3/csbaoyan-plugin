@@ -24,6 +24,10 @@ export class Batch extends plugin {
                     reg: batchReg,
                     fnc: "batchHandler", // 合并后的执行方法
                 },
+                {
+                    reg: /^#广播(精华?)?/,
+                    fnc: "broadcast", // 合并后的执行方法
+                },
             ],
         });
     }
@@ -93,6 +97,25 @@ export class Batch extends plugin {
         }
         Config.setConfig("batch", "batchSize", Number(batchSize));
         return e.reply(`设置成功，当前批处理最大值为：${batchSize}`);
+    }
+
+    async broadcast(e) {
+        let groups = Config.getConfig("default", "scope");
+        if (!groups.includes(e.group_id)) {
+            return false;
+        }
+        if (!common.checkPermission(e, "admin")) return false;
+        e.message[0].text = e.message[0].text.replace("^#广播(精华?)?", "").trim()
+        if (!e.message[0].text) e.message.shift()
+        if (lodash.isEmpty(e.message)) return e.reply("❎ 消息不能为空")
+        e.message.unshift(segment.at("all"))
+        let res_msg = [];
+        for (let gpid of groups) {
+            await Bot.pickGroup(gpid).sendMsg(e.message)
+                .then(() => res_msg.push(`✅ ${gpid} 群聊消息已送达`))
+                .catch((err) => res_msg.push(`❎ ${gpid} 群聊消息发送失败\n错误信息为:${err}`))
+        }
+        return e.reply(res_msg.join("\n"))
     }
 
 }

@@ -17,6 +17,7 @@ export class CSBaoyanHelp extends plugin {
 
   async showHelp(e) {
     const helpMessage = `-==csbaoyan-plugin帮助==-
+
 1. 自动入群审批
     描述: 根据正则允许入群者是否能入群，采用随机算法
     使用方法: 
@@ -57,7 +58,15 @@ export class CSBaoyanHelp extends plugin {
       
 6. 复读检测：
     描述：使用感知哈希检测图片，重复超过一定次数会被撤回
-    使用方法：自动进行`;
+    使用方法：自动进行
+
+7. 批处理：
+    描述：批量撤回消息，并禁言
+    使用方法：#批量撤回10 #批量撤禁15
+
+8. 广播：
+    描述：广播消息给所有绿群
+    使用方法：#广播这条消息 #广播第二条消息`;
 
     return e.reply(helpMessage);
   }
