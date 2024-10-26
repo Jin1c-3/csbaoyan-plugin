@@ -29,7 +29,7 @@ export class Lru extends plugin {
         if (!groups.includes(e.group_id)) {
             return false;
         }
-        if (!common.checkPermission(e, "admin")) return true
+        if (!common.checkPermission(e, "admin", "admin")) { return true }
         let regRet = lrureg.exec(e.msg)
         regRet[3] = translateChinaNum(regRet[3] || 1)
         // 确认清理直接执行
