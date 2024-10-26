@@ -25,7 +25,7 @@ export class Batch extends plugin {
                     fnc: "batchHandler", // 合并后的执行方法
                 },
                 {
-                    reg: /^#广播(精华?)?/,
+                    reg: /^#(全体)?广播(精华?)?/,
                     fnc: "broadcast", // 合并后的执行方法
                 },
             ],
@@ -104,18 +104,21 @@ export class Batch extends plugin {
         if (!groups.includes(e.group_id)) {
             return false;
         }
-        if (!common.checkPermission(e, "admin")) return false;
-        e.message[0].text = e.message[0].text.replace("^#广播(精华?)?", "").trim()
+        if (!common.checkPermission(e, "admin", "admin")) return false;
+        const all_flag = e.message[0].text.startsWith("#全体")
+        e.message[0].text = e.message[0].text.replace(/#(全体)?广播(精华?)?/, "").trim()
         if (!e.message[0].text) e.message.shift()
         if (lodash.isEmpty(e.message)) return e.reply("❎ 消息不能为空")
-        e.message.unshift(segment.at("all"))
+        if (all_flag) {
+            e.message.unshift(segment.at("all"))
+        }
         let res_msg = [];
         for (let gpid of groups) {
             await Bot.pickGroup(gpid).sendMsg(e.message)
                 .then(() => res_msg.push(`✅ ${gpid} 群聊消息已送达`))
                 .catch((err) => res_msg.push(`❎ ${gpid} 群聊消息发送失败\n错误信息为:${err}`))
         }
-        return e.reply(res_msg.join("\n"))
+        return e.reply(res_msg.join("\n"), true, { recallMsg: 60 })
     }
 
 }

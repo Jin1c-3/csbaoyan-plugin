@@ -65,8 +65,8 @@ export class CSBaoyanHelp extends plugin {
     使用方法：#批量撤回10 #批量撤禁15
 
 8. 广播：
-    描述：广播消息给所有绿群
-    使用方法：#广播这条消息 #广播第二条消息`;
+    描述：广播消息给所有绿群，加全体会艾特全体成员
+    使用方法：#广播这条消息 #全体广播第二条消息`;
 
     return e.reply(helpMessage);
   }
