@@ -50,6 +50,10 @@ export class AvoidRepeat extends plugin {
             group_track_message.set(e.group_id, []);
         }
         let traceNum = Config.getConfig("avoidRepeat", "traceNum");
+        let lock = await redis.get(`CSBAOYAN:AVOIDREPEAT:${e.group_id}`)
+        if (lock) {
+            return false;
+        }
         let messages = group_track_message.get(e.group_id);
         if (messages.length == 0) {
             messages.push({ ...e.message[0], message_id: e.message_id, user_id: e.user_id });
@@ -61,7 +65,12 @@ export class AvoidRepeat extends plugin {
         } else {
             group_track_message.set(e.group_id, [{ ...e.message[0], message_id: e.message_id, user_id: e.user_id }]);
         }
+        lock = await redis.get(`CSBAOYAN:AVOIDREPEAT:${e.group_id}`)
+        if (lock) {
+            return false;
+        }
         if (messages.length >= traceNum) {
+            await redis.set(`CSBAOYAN:AVOIDREPEAT:${e.group_id}`, '1', { EX: 600 })
             const res = await e.reply(`复读达咩哟ヽ(*。>Д<)o゜`)
             const user_id_pool = new Set();
             for (let i = 0; i < messages.length; i++) {
@@ -76,7 +85,8 @@ export class AvoidRepeat extends plugin {
             }
             await e.group.recallMsg(res.message_id);
             group_track_message.set(e.group_id, []);
-            return true;
+            await redis.del(`CSBAOYAN:AVOIDREPEAT:${e.group_id}`)
+            return false;
         }
         return false;
     }
