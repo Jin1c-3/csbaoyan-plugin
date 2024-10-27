@@ -60,14 +60,14 @@ export class AvoidRepeat extends plugin {
         }
         let messages = group_track_message.get(e.group_id);
         if (messages.length == 0) {
-            messages.push({ ...e.message[e.message.length - 1], message_id: e.message_id, user_id: e.user_id });
+            messages.push({ message: e.message, message_id: e.message_id, user_id: e.user_id });
             return false;
         }
-        const isSimilar = await this.isSimilarMessage(e.message[e.message.length - 1], messages[messages.length - 1]);
+        const isSimilar = await this.isSimilarMessage(e.message, messages[messages.length - 1].message);
         if (isSimilar) {
-            messages.push({ ...e.message[e.message.length - 1], message_id: e.message_id, user_id: e.user_id });
+            messages.push({ message: e.message, message_id: e.message_id, user_id: e.user_id });
         } else {
-            group_track_message.set(e.group_id, [{ ...e.message[e.message.length - 1], message_id: e.message_id, user_id: e.user_id }]);
+            group_track_message.set(e.group_id, [{ message: e.message, message_id: e.message_id, user_id: e.user_id }]);
         }
         lock = await redis.get(`CSBAOYAN:AVOIDREPEAT:${e.group_id}`)
         if (lock) {
@@ -100,27 +100,36 @@ export class AvoidRepeat extends plugin {
     }
 
     async isSimilarMessage(now_msg, last_msg) {
-        if (now_msg.type !== last_msg.type) {
+        if (now_msg.length !== last_msg.length) {
             return false;
         }
-        if (now_msg.type == "image") {
-            if (now_msg.file_unique == last_msg.file_unique) {
-                return true;
-            }
-            const [hash1, hash2] = await Promise.all([
-                this.getOrComputeImageHash(now_msg.file_unique, now_msg.url),
-                this.getOrComputeImageHash(last_msg.file_unique, last_msg.url)
-            ]);
-
-            if (!hash1 || !hash2) {
+        const msg_length = now_msg.length;
+        for (let i = 0; i < msg_length; i++) {
+            if (now_msg[i].type !== last_msg[i].type) {
                 return false;
             }
-            const distance = leven(hash1, hash2);
-            logger.mark(`Distance between images is: ${distance}`);
-            return distance <= Config.getConfig("avoidRepeat", "sensitive");
-        } else {
-            return last_msg.text === now_msg.text;
+            if (now_msg[i].type == "image") {
+                if (now_msg[i].file_unique == last_msg[i].file_unique) {
+                    continue;
+                }
+                const [hash1, hash2] = await Promise.all([
+                    this.getOrComputeImageHash(now_msg[i].file_unique, now_msg[i].url),
+                    this.getOrComputeImageHash(last_msg[i].file_unique, last_msg[i].url)
+                ]);
+
+                if (!hash1 || !hash2) {
+                    return false;
+                }
+                const distance = leven(hash1, hash2);
+                logger.mark(`Distance between images is: ${distance}`);
+                return distance <= Config.getConfig("avoidRepeat", "sensitive");
+            } else {
+                if (JSON.stringify(last_msg[i]) !== JSON.stringify(now_msg[i])) {
+                    return false;
+                };
+            }
         }
+        return true;
     }
 
     async getOrComputeImageHash(fileUnique, imageUrl) {
