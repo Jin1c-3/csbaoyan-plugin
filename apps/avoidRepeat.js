@@ -26,6 +26,10 @@ export class AvoidRepeat extends plugin {
                     fnc: "traceNumConfig", // 执行方法
                 },
                 {
+                    reg: "^#(设置|查看|查询)复读阻止概率", // 正则表达式,有关正则表达式请自行百度
+                    fnc: "chanceConfig", // 执行方法
+                },
+                {
                     reg: "^#(设置|查看|查询)复读图片敏感度", // 正则表达式,有关正则表达式请自行百度
                     fnc: "sensitiveConfig", // 执行方法
                 },
@@ -71,20 +75,24 @@ export class AvoidRepeat extends plugin {
         }
         if (messages.length >= traceNum) {
             await redis.set(`CSBAOYAN:AVOIDREPEAT:${e.group_id}`, '1', { EX: 600 })
-            const res = await e.reply(`复读达咩哟ヽ(*。>Д<)o゜`)
-            const user_id_pool = new Set();
-            for (let i = 0; i < messages.length; i++) {
-                if (!user_id_pool.has(messages[i].user_id)) {
-                    await e.group.muteMember(messages[i].user_id, 60)
-                    user_id_pool.add(messages[i].user_id)
+            if (Math.random() >= Config.getConfig("avoidRepeat", "chance")) {
+                e.reply(`再复读休怪我不留情面喵(～o￣3￣)～`)
+            } else {
+                const res = await e.reply(`复读达咩哟ヽ(*。>Д<)o゜`)
+                const user_id_pool = new Set();
+                for (let i = 0; i < messages.length; i++) {
+                    if (!user_id_pool.has(messages[i].user_id)) {
+                        await e.group.muteMember(messages[i].user_id, 60)
+                        user_id_pool.add(messages[i].user_id)
+                    }
+                    if (i === 0) {
+                        continue;
+                    }
+                    await e.group.recallMsg(messages[i].message_id);
                 }
-                if (i === 0) {
-                    continue;
-                }
-                await e.group.recallMsg(messages[i].message_id);
+                await e.group.recallMsg(res.message_id);
+                group_track_message.set(e.group_id, []);
             }
-            await e.group.recallMsg(res.message_id);
-            group_track_message.set(e.group_id, []);
             await redis.del(`CSBAOYAN:AVOIDREPEAT:${e.group_id}`)
             return false;
         }
@@ -145,10 +153,28 @@ export class AvoidRepeat extends plugin {
             .replace(/&#93;/g, "]")
             .trim();
         if (0 > traceNum) {
-            return e.reply(`设置失败，概率不合理：${traceNum}`);
+            return e.reply(`设置失败，阻止次数不合理：${traceNum}`);
         }
         Config.setConfig("avoidRepeat", "traceNum", Number(traceNum));
         return e.reply(`设置成功，当前复读阻止次数为：${traceNum}`);
+    }
+
+    async chanceConfig(e) {
+        if (!common.checkPermission(e, "admin")) return false;
+        if (/#(查看|查询)/.test(e.raw_message)) {
+            let chance = Config.getConfig("avoidRepeat", "chance");
+            return e.reply(`当前复读阻止概率为：${chance}`);
+        }
+        let chance = e.raw_message
+            .replace(/#?设置复读阻止概率/, "")
+            .replace(/&#91;/g, "[")
+            .replace(/&#93;/g, "]")
+            .trim();
+        if (0 > chance || chance > 1) {
+            return e.reply(`设置失败，阻止概率不合理：${chance}`);
+        }
+        Config.setConfig("avoidRepeat", "chance", Number(chance));
+        return e.reply(`设置成功，当前复读阻止概率为：${chance}`);
     }
 
     async sensitiveConfig(e) {
