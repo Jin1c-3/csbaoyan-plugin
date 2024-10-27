@@ -56,14 +56,14 @@ export class AvoidRepeat extends plugin {
         }
         let messages = group_track_message.get(e.group_id);
         if (messages.length == 0) {
-            messages.push({ ...e.message[0], message_id: e.message_id, user_id: e.user_id });
+            messages.push({ ...e.message[e.message.length - 1], message_id: e.message_id, user_id: e.user_id });
             return false;
         }
-        const isSimilar = await this.isSimilarMessage(e.message[0], messages[messages.length - 1]);
+        const isSimilar = await this.isSimilarMessage(e.message[e.message.length - 1], messages[messages.length - 1]);
         if (isSimilar) {
-            messages.push({ ...e.message[0], message_id: e.message_id, user_id: e.user_id });
+            messages.push({ ...e.message[e.message.length - 1], message_id: e.message_id, user_id: e.user_id });
         } else {
-            group_track_message.set(e.group_id, [{ ...e.message[0], message_id: e.message_id, user_id: e.user_id }]);
+            group_track_message.set(e.group_id, [{ ...e.message[e.message.length - 1], message_id: e.message_id, user_id: e.user_id }]);
         }
         lock = await redis.get(`CSBAOYAN:AVOIDREPEAT:${e.group_id}`)
         if (lock) {
