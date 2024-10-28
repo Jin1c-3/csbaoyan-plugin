@@ -68,6 +68,7 @@ export class AvoidRepeat extends plugin {
             messages.push({ message: e.message, message_id: e.message_id, user_id: e.user_id });
         } else {
             group_track_message.set(e.group_id, [{ message: e.message, message_id: e.message_id, user_id: e.user_id }]);
+            return false;
         }
         lock = await redis.get(`CSBAOYAN:AVOIDREPEAT:${e.group_id}`)
         if (lock) {

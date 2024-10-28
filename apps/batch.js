@@ -117,6 +117,7 @@ export class Batch extends plugin {
             await Bot.pickGroup(gpid).sendMsg(e.message)
                 .then(() => res_msg.push(`✅ ${gpid} 群聊消息已送达`))
                 .catch((err) => res_msg.push(`❎ ${gpid} 群聊消息发送失败\n错误信息为:${err}`))
+            await Bot.sleep(5000);
         }
         return e.reply(res_msg.join("\n"), true, { recallMsg: 60 })
     }
